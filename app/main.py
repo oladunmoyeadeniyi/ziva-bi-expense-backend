@@ -1,4 +1,3 @@
-# fastapi main app for Ziva BI Expense Module (demo)
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,7 +11,7 @@ from .config import UPLOAD_DIR
 # create tables (safe on startup)
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Ziva BI - Expense Module (Backend)", version="1.0")
+app = FastAPI(title="Ziva BI - Expense Module (Backend)", version="1.0", docs_url="/docs", redoc_url="/redoc")
 
 app.add_middleware(
     CORSMiddleware,
@@ -21,6 +20,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/", include_in_schema=False)
+def root():
+    return {"status": "Ziva BI Expense backend running"}
 
 @app.post("/api/expenses", response_model=schemas.ExpenseOut, status_code=201)
 async def create_expense(
@@ -32,14 +35,12 @@ async def create_expense(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    # validate extension
     filename = file.filename
     ext = filename.split('.')[-1].lower()
     if ext not in {"png","jpg","jpeg","pdf"}:
         raise HTTPException(status_code=400, detail="Invalid file type")
     safe_name = f"{uuid.uuid4().hex}_{filename}"
     save_path = os.path.join(UPLOAD_DIR, safe_name)
-    # write file content
     with open(save_path, 'wb') as f:
         content = await file.read()
         f.write(content)
@@ -70,7 +71,7 @@ def reject(expense_id: str, comment: str = Form("Rejected"), db: Session = Depen
         raise HTTPException(status_code=404, detail="Expense not found")
     return exp
 
-@app.get('/uploads/{filename}')
+@app.get('/uploads/{filename}', include_in_schema=False)
 def serve_file(filename: str):
     path = os.path.join(UPLOAD_DIR, filename)
     if not os.path.exists(path):
